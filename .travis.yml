@@ -1,0 +1,20 @@
+language: scala
+
+scala:
+  - 2.11.8
+  - 2.12.1
+
+script: sbt ++$TRAVIS_SCALA_VERSION test
+
+before_deploy:
+  - mkdir -p $HOME/.bintray
+  - openssl aes-256-cbc -K $encrypted_9d26de061da6_key -iv $encrypted_9d26de061da6_iv -in .credentials.enc -out $HOME/.bintray/.credentials -d
+
+deploy:
+  provider: script
+  script: sbt ++$TRAVIS_SCALA_VERSION publish
+  on:
+    branch: master
+
+jdk:
+  - oraclejdk8
