@@ -1,8 +1,9 @@
 package com.dwolla.lambda.cloudformation
 
-import java.io.{InputStream, OutputStream}
+import java.io.{InputStream, OutputStream, PrintWriter, StringWriter}
 
 import com.amazonaws.services.lambda.runtime.{Context, RequestStreamHandler}
+import com.dwolla.lambda.cloudformation.AbstractCustomResourceHandler.stackTraceLines
 import org.json4s.ParserUtil.ParseException
 import org.json4s._
 import org.json4s.native.Serialization._
@@ -57,7 +58,8 @@ abstract class AbstractCustomResourceHandler extends RequestStreamHandler {
           PhysicalResourceId = req.PhysicalResourceId,
           StackId = req.StackId,
           RequestId = req.RequestId,
-          LogicalResourceId = req.LogicalResourceId
+          LogicalResourceId = req.LogicalResourceId,
+          Data = Map("StackTrace" → stackTraceLines(ex))
         )
     }.flatMap { res ⇒
       responseWriter.logAndWriteToS3(req.ResponseURL, res)
@@ -75,4 +77,12 @@ abstract class AbstractCustomResourceHandler extends RequestStreamHandler {
   protected lazy val logger: Logger = LoggerFactory.getLogger("LambdaLogger")
 
   protected implicit val formats: Formats = DefaultFormats ++ org.json4s.ext.JodaTimeSerializers.all
+}
+
+object AbstractCustomResourceHandler {
+  def stackTraceLines(throwable: Throwable): List[String] = {
+    val writer = new StringWriter()
+    throwable.printStackTrace(new PrintWriter(writer))
+    writer.toString.lines.toList
+  }
 }

@@ -1,6 +1,6 @@
 package com.dwolla.lambda.cloudformation
 
-import java.io.OutputStream
+import java.io.{OutputStream, PrintWriter, StringWriter}
 
 import com.amazonaws.services.lambda.runtime.Context
 import com.amazonaws.util.StringInputStream
@@ -46,6 +46,7 @@ class CloudFormationCustomResourceHandlerSpec(implicit ee: ExecutionEnv) extends
   "Handler" should {
     "deserialize input, pass req to handler, and convert output to response format" in new Setup {
       val promisedRequest = Promise[CloudFormationCustomResourceRequest]
+
       override def mockHandlerRequest(input: CloudFormationCustomResourceRequest) = Future {
         promisedRequest.success(input)
         HandlerResponse(physicalId = "physical-id")
@@ -98,7 +99,8 @@ class CloudFormationCustomResourceHandlerSpec(implicit ee: ExecutionEnv) extends
         LogicalResourceId = "MyTestResource",
         RequestId = "unique id for this create request",
         PhysicalResourceId = None,
-        Reason = Option("exception intentionally thrown by test")
+        Reason = Option("exception intentionally thrown by test"),
+        Data = Map("StackTrace" → List("com.dwolla.testutils.exceptions.NoStackTraceException$: exception intentionally thrown by test"))
       )
 
       mockResponseWriter.logAndWriteToS3("http://pre-signed-S3-url-for-response", expectedResponse) returns Future.successful(())
@@ -119,7 +121,8 @@ class CloudFormationCustomResourceHandlerSpec(implicit ee: ExecutionEnv) extends
         LogicalResourceId = "MyTestResource",
         RequestId = "unique id for this create request",
         PhysicalResourceId = None,
-        Reason = Option("exception intentionally thrown by test")
+        Reason = Option("exception intentionally thrown by test"),
+        Data = Map("StackTrace" → List("com.dwolla.testutils.exceptions.NoStackTraceException$: exception intentionally thrown by test"))
       )
 
       mockResponseWriter.logAndWriteToS3("http://pre-signed-S3-url-for-response", expectedResponse) returns Future.successful(())
@@ -127,6 +130,51 @@ class CloudFormationCustomResourceHandlerSpec(implicit ee: ExecutionEnv) extends
       handler.handleRequest(new StringInputStream(CloudFormationCustomResourceInputJson), outputStream, context)
 
       there was one(mockResponseWriter).logAndWriteToS3("http://pre-signed-S3-url-for-response", expectedResponse)
+    }
+  }
+
+  "Response" should {
+    "be serializable" >> {
+      val exception = new WritableStackTraceRuntimeException
+      exception.setStackTrace(Array(new StackTraceElement("class", "method", "filename", 42)))
+      exception.addSuppressed(new WritableStackTraceRuntimeException("suppressed exception intentionally thrown by test"))
+
+      val stackTrace = {
+        val out = new StringWriter()
+        exception.printStackTrace(new PrintWriter(out))
+        out.toString.lines.toList
+      }
+
+      val expectedResponse = CloudFormationCustomResourceResponse(
+        Status = "FAILED",
+        StackId = "arn:aws:cloudformation:us-west-2:EXAMPLE/stack-name/guid",
+        LogicalResourceId = "MyTestResource",
+        RequestId = "unique id for this create request",
+        PhysicalResourceId = None,
+        Reason = Option("exception intentionally thrown by test"),
+        Data = Map(
+          "StackTrace" → stackTrace
+        )
+      )
+
+      import org.json4s.native.Serialization.writePretty
+      implicit val formats = org.json4s.DefaultFormats
+
+      writePretty(expectedResponse) must_==
+        """{
+          |  "Status":"FAILED",
+          |  "Reason":"exception intentionally thrown by test",
+          |  "StackId":"arn:aws:cloudformation:us-west-2:EXAMPLE/stack-name/guid",
+          |  "RequestId":"unique id for this create request",
+          |  "LogicalResourceId":"MyTestResource",
+          |  "Data":{
+          |    "StackTrace":[
+          |      "com.dwolla.lambda.cloudformation.WritableStackTraceRuntimeException: exception intentionally thrown by test",
+          |      "\tat class.method(filename:42)",
+          |      "\tSuppressed: com.dwolla.lambda.cloudformation.WritableStackTraceRuntimeException: suppressed exception intentionally thrown by test"
+          |    ]
+          |  }
+          |}""".stripMargin
     }
   }
 }
@@ -152,4 +200,8 @@ object SampleMessages {
       | """.stripMargin
 
   val invalidJson = "}"
+}
+
+class WritableStackTraceRuntimeException(message: String = "exception intentionally thrown by test") extends RuntimeException(message, null, true, true) {
+  override def fillInStackTrace(): Throwable = this
 }
