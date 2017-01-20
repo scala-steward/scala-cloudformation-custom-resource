@@ -4,8 +4,8 @@ lazy val buildSettings = Seq(
   homepage := Some(url("https://github.com/Dwolla/scala-cloudformation-custom-resource")),
   description := "Abstract CloudFormation custom resource Lambda that can be easily extended with custom functionality.",
   licenses += ("MIT", url("http://opensource.org/licenses/MIT")),
-  version := "1.1.0",
-  scalaVersion := "2.11.8",
+  version := "1.1.1",
+  scalaVersion := "2.12.1",
   crossScalaVersions := Seq("2.11.8", "2.12.1"),
   startYear := Option(2016),
   resolvers ++= Seq(
@@ -27,16 +27,16 @@ lazy val buildSettings = Seq(
     )
 
     Seq(
-      "com.dwolla" %% "scala-aws-utils" % "1.0.0" exclude("com.amazonaws", "aws-java-sdk-cloudformation"),
+      "com.dwolla" %% "scala-aws-utils" % "1.2.0",
       "com.amazonaws" % "aws-lambda-java-core" % "1.1.0",
-      "com.amazonaws" % "aws-lambda-java-events" % "1.1.0" excludeAll(amazonJavaSdks: _*),
       "com.amazonaws" % "aws-lambda-java-log4j" % "1.0.0" exclude("log4j", "log4j"),
-      "com.amazonaws" % "aws-java-sdk-route53" % awsSdkVersion,
-      "org.slf4j" % "log4j-over-slf4j" % "1.7.12",
+      "org.apache.httpcomponents" % "httpclient" % "4.5.2",
+      "org.slf4j" % "log4j-over-slf4j" % "1.7.20",
       "org.json4s" %% "json4s-native" % json4sVersion,
       "org.json4s" %% "json4s-ext" % json4sVersion,
       "ch.qos.logback" % "logback-classic" % "1.1.7",
       "com.jsuereth" %% "scala-arm" % "2.0",
+      "com.amazonaws" % "aws-lambda-java-events" % "1.1.0" % Test excludeAll(amazonJavaSdks: _*),
       "org.specs2" %% "specs2-core" % specs2Version % Test,
       "org.specs2" %% "specs2-mock" % specs2Version % Test,
       "com.dwolla" %% "testutils" % "1.2.0" % Test
@@ -52,5 +52,5 @@ lazy val bintraySettings = Seq(
   pomIncludeRepository := { _ ⇒ false }
 )
 
-lazy val scalaAwsUtils = (project in file("."))
+lazy val cloudformationCustomResource = (project in file("."))
   .settings(buildSettings ++ bintraySettings: _*)
