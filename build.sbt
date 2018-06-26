@@ -4,16 +4,14 @@ lazy val buildSettings = Seq(
   homepage := Some(url("https://github.com/Dwolla/scala-cloudformation-custom-resource")),
   description := "Abstract CloudFormation custom resource Lambda that can be easily extended with custom functionality.",
   licenses += ("MIT", url("http://opensource.org/licenses/MIT")),
-  version := "1.1.1",
-  scalaVersion := "2.12.1",
-  crossScalaVersions := Seq("2.11.8", "2.12.1"),
   startYear := Option(2016),
   resolvers ++= Seq(
-    Resolver.bintrayIvyRepo("dwolla", "maven")
+    Resolver.bintrayRepo("dwolla", "maven")
   ),
+  releaseVersionBump := sbtrelease.Version.Bump.Minor,
+  releaseCrossBuild := true,
   libraryDependencies ++= {
     val specs2Version = "3.8.6"
-    val awsSdkVersion = "1.11.66"
     val json4sVersion = "3.5.0"
 
     val amazonJavaSdks = List(    // exclude the SDKs we don't need, since they're pulled in transitively, to keep the size of the jar down
@@ -27,7 +25,7 @@ lazy val buildSettings = Seq(
     )
 
     Seq(
-      "com.dwolla" %% "scala-aws-utils" % "1.2.0",
+      "com.dwolla" %% "scala-aws-utils" % "1.6.1",
       "com.amazonaws" % "aws-lambda-java-core" % "1.1.0",
       "com.amazonaws" % "aws-lambda-java-log4j" % "1.0.0" exclude("log4j", "log4j"),
       "org.apache.httpcomponents" % "httpclient" % "4.5.2",
@@ -39,14 +37,14 @@ lazy val buildSettings = Seq(
       "com.amazonaws" % "aws-lambda-java-events" % "1.1.0" % Test excludeAll(amazonJavaSdks: _*),
       "org.specs2" %% "specs2-core" % specs2Version % Test,
       "org.specs2" %% "specs2-mock" % specs2Version % Test,
-      "com.dwolla" %% "testutils" % "1.2.0" % Test
+      "com.dwolla" %% "testutils" % "1.10.0" % Test
     )
   }
 )
 
 lazy val bintraySettings = Seq(
-  bintrayVcsUrl := Some("https://github.com/Dwolla/scala-cloudformation-custom-resource"),
-  publishMavenStyle := false,
+  bintrayVcsUrl := homepage.value.map(_.toString),
+  publishMavenStyle := true,
   bintrayRepository := "maven",
   bintrayOrganization := Option("dwolla"),
   pomIncludeRepository := { _ ⇒ false }
