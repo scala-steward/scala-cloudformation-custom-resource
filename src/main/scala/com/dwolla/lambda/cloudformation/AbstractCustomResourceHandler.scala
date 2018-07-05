@@ -1,82 +1,85 @@
 package com.dwolla.lambda.cloudformation
 
-import java.io.{InputStream, OutputStream, PrintWriter, StringWriter}
+import java.io._
 
-import com.amazonaws.services.lambda.runtime.{Context, RequestStreamHandler}
+import cats.data._
+import cats.effect._
+import cats.implicits._
+import com.amazonaws.services.lambda.runtime._
 import com.dwolla.lambda.cloudformation.AbstractCustomResourceHandler.stackTraceLines
-import org.json4s.ParserUtil.ParseException
-import org.json4s._
-import org.json4s.native.Serialization._
-import org.slf4j.{Logger, LoggerFactory}
+import io.circe._
+import io.circe.generic.auto._
+import io.circe.parser._
+import org.slf4j._
 
-import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent._
 import scala.io.Source
-import scala.language.postfixOps
-import scala.util.Try
+import scala.language.higherKinds
 
-abstract class AbstractCustomResourceHandler extends RequestStreamHandler {
-  def createParsedRequestHandler(): ParsedCloudFormationCustomResourceRequestHandler
+abstract class CatsAbstractCustomResourceHandler[F[_] : Effect] extends RequestStreamHandler {
+  def handleRequest(req: CloudFormationCustomResourceRequest): F[HandlerResponse]
 
-  implicit val executionContext: ExecutionContext
+  private def readInputStream(inputStream: InputStream): EitherT[F, Throwable, String] =
+    Async[F].delay(Source.fromInputStream(inputStream).mkString).attemptT
 
-  override def handleRequest(inputStream: InputStream, outputStream: OutputStream, context: Context): Unit = {
-    val input = Source.fromInputStream(inputStream).mkString
+  private def parseStringLoggingErrors(str: String): EitherT[F, Throwable, Json] =
+    EitherT.fromEither[F](parse(str)).leftSemiflatMap(ex ⇒ Async[F].delay {
+      logger.error(s"Could not parse the following input:\n$str", ex)
+      ex
+    })
 
-    val req = try {
-      read[CloudFormationCustomResourceRequest](input)
-    } catch {
-      case ex: ParseException ⇒
-        logger.error(input, ex)
-        throw ex
-    }
+  /*_*/
+  private def parseInputStream(inputStream: InputStream): EitherT[F, Throwable, CloudFormationCustomResourceRequest] =
+    for {
+      str ← readInputStream(inputStream)
+      json ← parseStringLoggingErrors(str)
+      req ← EitherT.fromEither[F](json.as[CloudFormationCustomResourceRequest]).leftWiden[Throwable]
+    } yield req
+  /*_*/
 
-    logger.debug(write(req))
-
-    val actualHandler = createParsedRequestHandler()
-
-    val eventuallyHandledRequest = Try(actualHandler.handleRequest(req))
-      .recover {
-        case ex ⇒ Future.failed(ex)
+  private def handleRequestF(inputStream: InputStream): F[Unit] =
+    parseInputStream(inputStream)
+      .semiflatMap { req ⇒
+        for {
+          res ← handleRequest(req).attemptT.fold(exceptionResponse(req), successResponse(req))
+          _ ← responseWriter.logAndWriteToS3(req.ResponseURL, res)
+        } yield ()
       }
-      .get
-      .map { res ⇒
-        CloudFormationCustomResourceResponse(
-          Status = "SUCCESS",
-          Reason = None,
-          PhysicalResourceId = Option(res.physicalId),
-          StackId = req.StackId,
-          RequestId = req.RequestId,
-          LogicalResourceId = req.LogicalResourceId,
-          Data = res.data
-        )
-      }.recover {
-      case ex: Exception ⇒
-        CloudFormationCustomResourceResponse(
-          Status = "FAILED",
-          Reason = Option(ex.getMessage),
-          PhysicalResourceId = req.PhysicalResourceId,
-          StackId = req.StackId,
-          RequestId = req.RequestId,
-          LogicalResourceId = req.LogicalResourceId,
-          Data = Map("StackTrace" → stackTraceLines(ex))
-        )
-    }.flatMap { res ⇒
-      responseWriter.logAndWriteToS3(req.ResponseURL, res)
-    }
+      .valueOrF { ex ⇒
+        Async[F].delay(logger.error("failure", ex))
+          .flatMap(_ ⇒ ex.raiseError[F, Unit])
+      }
 
-    try {
-      Await.ready(eventuallyHandledRequest, 30 seconds)
-    } finally {
-      actualHandler.shutdown()
-    }
-  }
+  //noinspection ScalaUnnecessaryParentheses
+  override def handleRequest(inputStream: InputStream, outputStream: OutputStream, context: Context): Unit =
+    IO.async { cb: (Either[Throwable, Unit] ⇒ Unit) ⇒
+      Effect[F].runAsync(handleRequestF(inputStream))(r ⇒ IO(cb(r))).unsafeRunSync()
+    }.unsafeRunSync()
 
-  protected def responseWriter: CloudFormationCustomResourceResponseWriter = new CloudFormationCustomResourceResponseWriter()
+  protected def responseWriter: CloudFormationCustomResourceResponseWriter[F] = new CloudFormationCustomResourceResponseWriter[F]()
 
   protected lazy val logger: Logger = LoggerFactory.getLogger("LambdaLogger")
 
-  protected implicit val formats: Formats = DefaultFormats ++ org.json4s.ext.JodaTimeSerializers.all
+  private def exceptionResponse(req: CloudFormationCustomResourceRequest)(ex: Throwable) = CloudFormationCustomResourceResponse(
+    Status = "FAILED",
+    Reason = Option(ex.getMessage),
+    PhysicalResourceId = req.PhysicalResourceId,
+    StackId = req.StackId,
+    RequestId = req.RequestId,
+    LogicalResourceId = req.LogicalResourceId,
+    Data = Map("StackTrace" → Json.arr(stackTraceLines(ex).map(Json.fromString): _*))
+  )
+
+  private def successResponse(req: CloudFormationCustomResourceRequest)(res: HandlerResponse) = CloudFormationCustomResourceResponse(
+    Status = "SUCCESS",
+    Reason = None,
+    PhysicalResourceId = Option(res.physicalId),
+    StackId = req.StackId,
+    RequestId = req.RequestId,
+    LogicalResourceId = req.LogicalResourceId,
+    Data = res.data
+  )
+
 }
 
 object AbstractCustomResourceHandler {
@@ -85,4 +88,23 @@ object AbstractCustomResourceHandler {
     throwable.printStackTrace(new PrintWriter(writer))
     writer.toString.lines.toList
   }
+}
+
+@deprecated("use CatsAbstractCustomResourceHandler instead to avoid using Future to manage effects", since = "2.0.0")
+abstract class AbstractCustomResourceHandler extends CatsAbstractCustomResourceHandler[IO] {
+  def createParsedRequestHandler(): ParsedCloudFormationCustomResourceRequestHandler
+  implicit val executionContext: ExecutionContext
+
+  // TODO replace with Bracket when cats-effect 1.0 is released
+  override def handleRequest(req: CloudFormationCustomResourceRequest): IO[HandlerResponse] =
+    for {
+      handler ← IO(createParsedRequestHandler())
+      attempt ← IO.fromFuture(IO(handler.handleRequest(req))).attempt
+      _ ← IO(handler.shutdown())
+      res ← attempt match {
+        case Right(res) ⇒ IO.pure(res)
+        case Left(ex) ⇒ IO.raiseError(ex)
+      }
+    } yield res
+
 }

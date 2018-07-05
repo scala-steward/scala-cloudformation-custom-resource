@@ -1,27 +1,30 @@
 package com.dwolla.lambda.cloudformation
 
-import java.io.InputStreamReader
 import java.net.URI
 
+import cats.effect._
+import cats.implicits._
+import io.circe.syntax._
+import io.circe.generic.auto._
+import io.circe.parser._
 import com.dwolla.testutils.exceptions.NoStackTraceException
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpPut, HttpUriRequest}
 import org.apache.http.impl.client.CloseableHttpClient
-import org.json4s.DefaultFormats
-import org.json4s.native.Serialization._
 import org.slf4j.Logger
 import org.specs2.concurrent.ExecutionEnv
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 import org.specs2.specification.Scope
 
+import scala.io.Source
+
 class CloudFormationCustomResourceResponseWriterSpec(implicit ee: ExecutionEnv) extends Specification with Mockito {
 
   trait Setup extends Scope {
-    protected implicit val formats = DefaultFormats ++ org.json4s.ext.JodaTimeSerializers.all
     val mockHttpClient = mock[CloseableHttpClient]
     val mockLogger = mock[Logger]
 
-    val responseWriter = new CloudFormationCustomResourceResponseWriter {
+    val responseWriter = new CloudFormationCustomResourceResponseWriter[IO] {
       override def httpClient: CloseableHttpClient = mockHttpClient
 
       override protected lazy val logger: Logger = mockLogger
@@ -44,7 +47,7 @@ class CloudFormationCustomResourceResponseWriterSpec(implicit ee: ExecutionEnv) 
       private val mockResponse = mock[CloseableHttpResponse]
       mockHttpClient.execute(httpRequestCaptor) returns mockResponse
 
-      val output = responseWriter.logAndWriteToS3("https://dwolla.amazonaws.com", sampleCloudFormationCustomResourceResponse)
+      val output = responseWriter.logAndWriteToS3("https://dwolla.amazonaws.com", sampleCloudFormationCustomResourceResponse).unsafeToFuture()
 
       output must be_==(()).await
 
@@ -56,9 +59,11 @@ class CloudFormationCustomResourceResponseWriterSpec(implicit ee: ExecutionEnv) 
       httpEntity.getContentLength must be_>(0L)
       httpEntity.isChunked must beFalse
 
-      read[CloudFormationCustomResourceResponse](new InputStreamReader(httpEntity.getContent)) must_== sampleCloudFormationCustomResourceResponse
+      val response = parse(Source.fromInputStream(httpEntity.getContent).mkString).flatMap(_.as[CloudFormationCustomResourceResponse]).right.get
 
-      there was one(mockLogger).info(write(sampleCloudFormationCustomResourceResponse))
+      response must_== sampleCloudFormationCustomResourceResponse
+
+      there was one(mockLogger).info(sampleCloudFormationCustomResourceResponse.asJson.noSpaces)
       there was one(mockResponse).close()
       there was one(mockHttpClient).close()
     }
@@ -66,7 +71,7 @@ class CloudFormationCustomResourceResponseWriterSpec(implicit ee: ExecutionEnv) 
     "close the HTTP client even if the PUT throws an error" in new Setup {
       mockHttpClient.execute(any[HttpUriRequest]) throws NoStackTraceException
 
-      val output = responseWriter.logAndWriteToS3("https://dwolla.amazonaws.com", sampleCloudFormationCustomResourceResponse)
+      val output = responseWriter.logAndWriteToS3("https://dwolla.amazonaws.com", sampleCloudFormationCustomResourceResponse).unsafeToFuture()
 
       output must throwA(NoStackTraceException).await
       there was one(mockHttpClient).close()
