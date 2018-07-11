@@ -29,13 +29,11 @@ lazy val buildSettings = Seq(
     Seq(
       "org.typelevel" %% "cats-core" % catsVersion,
       "org.typelevel" %% "cats-effect" % catsEffectVersion,
-      "com.dwolla" %% "scala-aws-utils" % "1.6.1",
       "com.amazonaws" % "aws-lambda-java-core" % "1.1.0",
       "com.amazonaws" % "aws-lambda-java-log4j" % "1.0.0" exclude("log4j", "log4j"),
       "org.apache.httpcomponents" % "httpclient" % "4.5.2",
       "org.slf4j" % "log4j-over-slf4j" % "1.7.20",
       "ch.qos.logback" % "logback-classic" % "1.1.7",
-      "com.jsuereth" %% "scala-arm" % "2.0",
       "com.amazonaws" % "aws-lambda-java-events" % "1.1.0" % Test excludeAll(amazonJavaSdks: _*),
       "org.specs2" %% "specs2-core" % specs2Version % Test,
       "org.specs2" %% "specs2-mock" % specs2Version % Test,
