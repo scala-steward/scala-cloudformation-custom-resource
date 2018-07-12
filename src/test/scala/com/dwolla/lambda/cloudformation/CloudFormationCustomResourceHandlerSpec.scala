@@ -1,50 +1,135 @@
 package com.dwolla.lambda.cloudformation
 
-import java.io.{OutputStream, PrintWriter, StringWriter}
+import java.io._
 
+import cats.effect._
 import com.amazonaws.services.lambda.runtime.Context
 import com.amazonaws.util.StringInputStream
 import com.dwolla.lambda.cloudformation.SampleMessages._
 import com.dwolla.testutils.exceptions.NoStackTraceException
-import org.json4s.JsonAST.{JArray, JString}
-import org.json4s.ParserUtil.ParseException
-import org.mockito.Matchers
+import io.circe._
+import io.circe.syntax._
+import io.circe.generic.auto._
+import org.mockito._
 import org.slf4j.Logger
 import org.specs2.concurrent.ExecutionEnv
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 import org.specs2.specification.Scope
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent._
 
 class CloudFormationCustomResourceHandlerSpec(implicit ee: ExecutionEnv) extends Specification with Mockito {
 
-  trait Setup extends Scope {
-    def mockHandlerRequest(input: CloudFormationCustomResourceRequest): Future[HandlerResponse]
+  implicit def listStringToJson(l: List[String]): Json = Json.arr(l.map(Json.fromString): _*)
 
-    val context = mock[Context]
-    val mockLogger = mock[Logger]
-    val outputStream = mock[OutputStream]
-    val mockResponseWriter = mock[CloudFormationCustomResourceResponseWriter]
-    val promisedShutdownOfActualHandler = Promise[Unit]
+  val spaces2OmitNulls = Printer.indented("  ").copy(dropNullValues = true, colonLeft = "", colonRight = "")
 
-    val handler = new AbstractCustomResourceHandler() {
+  "IO-based Handler" should {
+    trait IOSetup extends CatsAbstractCustomResourceHandler[IO] with Scope {
+      val context = mock[Context]
+      val mockLogger = mock[Logger]
+      val outputStream = mock[OutputStream]
+      val mockResponseWriter = mock[CloudFormationCustomResourceResponseWriter[IO]]
+
       override protected lazy val logger: Logger = mockLogger
 
-      override def createParsedRequestHandler(): ParsedCloudFormationCustomResourceRequestHandler = new ParsedCloudFormationCustomResourceRequestHandler {
-        override def shutdown(): Unit = promisedShutdownOfActualHandler.success(())
+      override protected def responseWriter = mockResponseWriter
+    }
 
-        override def handleRequest(input: CloudFormationCustomResourceRequest): Future[HandlerResponse] = mockHandlerRequest(input)
+    "deserialize input, pass req to handler, and convert output to response format" in new IOSetup {
+      val promisedRequest = Promise[CloudFormationCustomResourceRequest]
+
+      override def handleRequest(input: CloudFormationCustomResourceRequest) = IO {
+        promisedRequest.success(input)
+        HandlerResponse(physicalId = "physical-id")
       }
 
-      override protected def responseWriter = mockResponseWriter
+      private val expectedResponse = CloudFormationCustomResourceResponse(
+        Status = "SUCCESS",
+        StackId = "arn:aws:cloudformation:us-west-2:EXAMPLE/stack-name/guid",
+        LogicalResourceId = "MyTestResource",
+        RequestId = "unique id for this create request",
+        PhysicalResourceId = Option("physical-id"),
+        Reason = None
+      )
 
-      override implicit val executionContext: ExecutionContext = ee.executionContext
+      mockResponseWriter.logAndWriteToS3("http://pre-signed-S3-url-for-response", expectedResponse) returns IO.unit
+
+      this.handleRequest(new StringInputStream(CloudFormationCustomResourceInputJson), outputStream, context)
+
+      promisedRequest.future must be_==(CloudFormationCustomResourceRequest(
+        RequestType = "Create",
+        ResponseURL = "http://pre-signed-S3-url-for-response",
+        StackId = "arn:aws:cloudformation:us-west-2:EXAMPLE/stack-name/guid",
+        RequestId = "unique id for this create request",
+        ResourceType = "Custom::TestResource",
+        LogicalResourceId = "MyTestResource",
+        PhysicalResourceId = None,
+        ResourceProperties = Option(Map("StackName" → Json.fromString("stack-name"), "List" → Json.arr(List("1", "2", "3").map(Json.fromString): _*))),
+        OldResourceProperties = None
+      )).await
+      there was one(mockResponseWriter).logAndWriteToS3("http://pre-signed-S3-url-for-response", expectedResponse)
+    }
+
+    "log json if a parse error occurs" in new IOSetup {
+      this.handleRequest(new StringInputStream(invalidJson), outputStream, context) must throwA[ParsingFailure]
+
+      there was one(mockLogger).error(ArgumentMatchers.eq(
+        s"""Could not parse the following input:
+           |$invalidJson""".stripMargin), any[ParsingFailure])
+
+      //noinspection NotImplementedCode
+      override def handleRequest(req: CloudFormationCustomResourceRequest) = ???
+    }
+
+    "return a failure if the handler throws an exception" in new IOSetup {
+      override def handleRequest(req: CloudFormationCustomResourceRequest) = IO.raiseError(NoStackTraceException)
+
+      private val expectedResponse = CloudFormationCustomResourceResponse(
+        Status = "FAILED",
+        StackId = "arn:aws:cloudformation:us-west-2:EXAMPLE/stack-name/guid",
+        LogicalResourceId = "MyTestResource",
+        RequestId = "unique id for this create request",
+        PhysicalResourceId = None,
+        Reason = Option("exception intentionally thrown by test"),
+        Data = Map("StackTrace" → List("com.dwolla.testutils.exceptions.NoStackTraceException$: exception intentionally thrown by test"))
+      )
+
+      mockResponseWriter.logAndWriteToS3("http://pre-signed-S3-url-for-response", expectedResponse) returns IO.unit
+
+      this.handleRequest(new StringInputStream(CloudFormationCustomResourceInputJson), outputStream, context)
+
+      there was one(mockResponseWriter).logAndWriteToS3("http://pre-signed-S3-url-for-response", expectedResponse)
     }
   }
 
-  "Handler" should {
-    "deserialize input, pass req to handler, and convert output to response format" in new Setup {
+  "Future-based Handler" should {
+    trait FutureSetup extends Scope {
+      def mockHandlerRequest(input: CloudFormationCustomResourceRequest): Future[HandlerResponse]
+
+      val context = mock[Context]
+      val mockLogger = mock[Logger]
+      val outputStream = mock[OutputStream]
+      val mockResponseWriter = mock[CloudFormationCustomResourceResponseWriter[IO]]
+      val promisedShutdownOfActualHandler = Promise[Unit]
+
+      val handler = new AbstractCustomResourceHandler() {
+        override protected lazy val logger: Logger = mockLogger
+
+        override def createParsedRequestHandler(): ParsedCloudFormationCustomResourceRequestHandler = new ParsedCloudFormationCustomResourceRequestHandler {
+          override def shutdown(): Unit = promisedShutdownOfActualHandler.success(())
+
+          override def handleRequest(input: CloudFormationCustomResourceRequest): Future[HandlerResponse] = mockHandlerRequest(input)
+        }
+
+        override protected def responseWriter = mockResponseWriter
+
+        override implicit val executionContext: ExecutionContext = ee.executionContext
+      }
+    }
+
+    "deserialize input, pass req to handler, and convert output to response format" in new FutureSetup {
       val promisedRequest = Promise[CloudFormationCustomResourceRequest]
 
       override def mockHandlerRequest(input: CloudFormationCustomResourceRequest) = Future {
@@ -61,7 +146,7 @@ class CloudFormationCustomResourceHandlerSpec(implicit ee: ExecutionEnv) extends
         Reason = None
       )
 
-      mockResponseWriter.logAndWriteToS3("http://pre-signed-S3-url-for-response", expectedResponse) returns Future.successful(())
+      mockResponseWriter.logAndWriteToS3("http://pre-signed-S3-url-for-response", expectedResponse) returns IO.unit
 
       handler.handleRequest(new StringInputStream(CloudFormationCustomResourceInputJson), outputStream, context)
 
@@ -73,7 +158,7 @@ class CloudFormationCustomResourceHandlerSpec(implicit ee: ExecutionEnv) extends
         ResourceType = "Custom::TestResource",
         LogicalResourceId = "MyTestResource",
         PhysicalResourceId = None,
-        ResourceProperties = Option(Map("StackName" → JString("stack-name"), "List" → JArray(List("1", "2", "3").map(JString)))),
+        ResourceProperties = Option(Map("StackName" → Json.fromString("stack-name"), "List" → Json.arr(List("1", "2", "3").map(Json.fromString): _*))),
         OldResourceProperties = None
       )).await
       there was one(mockResponseWriter).logAndWriteToS3("http://pre-signed-S3-url-for-response", expectedResponse)
@@ -81,16 +166,18 @@ class CloudFormationCustomResourceHandlerSpec(implicit ee: ExecutionEnv) extends
       promisedShutdownOfActualHandler.future must be_==(()).await
     }
 
-    "log json if a parse error occurs" in new Setup {
-      handler.handleRequest(new StringInputStream(invalidJson), outputStream, context) must throwA[ParseException]
+    "log json if a parse error occurs" in new FutureSetup {
+      handler.handleRequest(new StringInputStream(invalidJson), outputStream, context) must throwA[ParsingFailure]
 
-      there was one(mockLogger).error(Matchers.eq(invalidJson), any[ParseException])
+      there was one(mockLogger).error(ArgumentMatchers.eq(
+        s"""Could not parse the following input:
+           |$invalidJson""".stripMargin), any[ParsingFailure])
 
       //noinspection NotImplementedCode
       override def mockHandlerRequest(input: CloudFormationCustomResourceRequest) = ???
     }
 
-    "return a failure if the handler throws an exception" in new Setup {
+    "return a failure if the handler throws an exception" in new FutureSetup {
       override def mockHandlerRequest(input: CloudFormationCustomResourceRequest) = throw NoStackTraceException
 
       private val expectedResponse = CloudFormationCustomResourceResponse(
@@ -103,7 +190,7 @@ class CloudFormationCustomResourceHandlerSpec(implicit ee: ExecutionEnv) extends
         Data = Map("StackTrace" → List("com.dwolla.testutils.exceptions.NoStackTraceException$: exception intentionally thrown by test"))
       )
 
-      mockResponseWriter.logAndWriteToS3("http://pre-signed-S3-url-for-response", expectedResponse) returns Future.successful(())
+      mockResponseWriter.logAndWriteToS3("http://pre-signed-S3-url-for-response", expectedResponse) returns IO.unit
 
       handler.handleRequest(new StringInputStream(CloudFormationCustomResourceInputJson), outputStream, context)
 
@@ -112,7 +199,7 @@ class CloudFormationCustomResourceHandlerSpec(implicit ee: ExecutionEnv) extends
       promisedShutdownOfActualHandler.future must be_==(()).await
     }
 
-    "return a failure if the handler returns a failed Future" in new Setup {
+    "return a failure if the handler returns a failed Future" in new FutureSetup {
       override def mockHandlerRequest(input: CloudFormationCustomResourceRequest) = Future.failed(NoStackTraceException)
 
       private val expectedResponse = CloudFormationCustomResourceResponse(
@@ -125,7 +212,7 @@ class CloudFormationCustomResourceHandlerSpec(implicit ee: ExecutionEnv) extends
         Data = Map("StackTrace" → List("com.dwolla.testutils.exceptions.NoStackTraceException$: exception intentionally thrown by test"))
       )
 
-      mockResponseWriter.logAndWriteToS3("http://pre-signed-S3-url-for-response", expectedResponse) returns Future.successful(())
+      mockResponseWriter.logAndWriteToS3("http://pre-signed-S3-url-for-response", expectedResponse) returns IO.unit
 
       handler.handleRequest(new StringInputStream(CloudFormationCustomResourceInputJson), outputStream, context)
 
@@ -157,10 +244,7 @@ class CloudFormationCustomResourceHandlerSpec(implicit ee: ExecutionEnv) extends
         )
       )
 
-      import org.json4s.native.Serialization.writePretty
-      implicit val formats = org.json4s.DefaultFormats
-
-      writePretty(expectedResponse) must_==
+      expectedResponse.asJson.pretty(spaces2OmitNulls) must_==
         """{
           |  "Status":"FAILED",
           |  "Reason":"exception intentionally thrown by test",

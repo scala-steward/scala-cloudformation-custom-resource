@@ -1,6 +1,6 @@
 package com.dwolla.lambda.cloudformation
 
-import org.json4s.JValue
+import io.circe.Json
 
 case class CloudFormationCustomResourceRequest(RequestType: String,
                                                ResponseURL: String,
@@ -9,8 +9,8 @@ case class CloudFormationCustomResourceRequest(RequestType: String,
                                                ResourceType: String,
                                                LogicalResourceId: String,
                                                PhysicalResourceId: Option[String],
-                                               ResourceProperties: Option[Map[String, JValue]],
-                                               OldResourceProperties: Option[Map[String, JValue]])
+                                               ResourceProperties: Option[Map[String, Json]],
+                                               OldResourceProperties: Option[Map[String, Json]])
 
 case class CloudFormationCustomResourceResponse(Status: String,
                                                 Reason: Option[String],
@@ -18,6 +18,6 @@ case class CloudFormationCustomResourceResponse(Status: String,
                                                 StackId: String,
                                                 RequestId: String,
                                                 LogicalResourceId: String,
-                                                Data: Map[String, AnyRef] = Map.empty[String, AnyRef])
+                                                Data: Map[String, Json] = Map.empty[String, Json])
 
 object MissingResourceProperties extends RuntimeException

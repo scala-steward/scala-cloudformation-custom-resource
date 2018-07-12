@@ -1,2 +1,3 @@
-logLevel := Level.Warn
-addSbtPlugin("me.lessis" % "bintray-sbt" % "0.3.0")
+addSbtPlugin("org.foundweekends" % "sbt-bintray" % "0.5.4")
+addSbtPlugin("com.github.gseitz" % "sbt-release" % "1.0.8")
+addSbtPlugin("com.dwijnand" % "sbt-travisci" % "1.1.1")
