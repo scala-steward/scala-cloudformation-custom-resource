@@ -12,9 +12,9 @@ lazy val buildSettings = Seq(
   releaseCrossBuild := true,
   libraryDependencies ++= {
     val specs2Version = "4.3.0"
-    val catsVersion = "1.1.0"
+    val catsVersion = "1.2.0"
     val catsEffectVersion = "0.10.1"
-    val circeVersion = "0.10.0-M1"
+    val circeVersion = "0.9.3"
 
     val amazonJavaSdks = List(    // exclude the SDKs we don't need, since they're pulled in transitively, to keep the size of the jar down
       ExclusionRule(organization = "com.amazonaws", name = "aws-java-sdk-cloudformation"),
