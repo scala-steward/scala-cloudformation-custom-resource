@@ -10,7 +10,7 @@ import com.dwolla.lambda.cloudformation.AbstractCustomResourceHandler.stackTrace
 import io.circe._
 import io.circe.generic.auto._
 import io.circe.parser._
-import org.slf4j._
+import org.apache.logging.log4j._
 
 import scala.concurrent._
 import scala.io.Source
@@ -58,7 +58,7 @@ abstract class CatsAbstractCustomResourceHandler[F[_] : Effect] extends RequestS
 
   protected def responseWriter: CloudFormationCustomResourceResponseWriter[F] = new CloudFormationCustomResourceResponseWriter[F]()
 
-  protected lazy val logger: Logger = LoggerFactory.getLogger("LambdaLogger")
+  protected lazy val logger: Logger = LogManager.getLogger("LambdaLogger")
 
   private def exceptionResponse(req: CloudFormationCustomResourceRequest)(ex: Throwable) = CloudFormationCustomResourceResponse(
     Status = "FAILED",
