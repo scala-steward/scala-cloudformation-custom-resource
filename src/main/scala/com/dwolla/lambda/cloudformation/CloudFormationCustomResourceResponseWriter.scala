@@ -1,8 +1,10 @@
 package com.dwolla.lambda.cloudformation
 
-import cats.effect.Async
-import io.circe.syntax._
+import cats.effect._
+import com.dwolla.lambda.cloudformation.CloudFormationCustomResourceResponseWriter._
+import io.circe._
 import io.circe.generic.auto._
+import io.circe.syntax._
 import org.apache.http.client.methods.HttpPut
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client._
@@ -19,7 +21,7 @@ class CloudFormationCustomResourceResponseWriter[F[_]: Async] {
   def logAndWriteToS3(presignedUri: String, cloudFormationCustomResourceResponse: CloudFormationCustomResourceResponse): F[Unit] =
     Async[F].delay {
       val req = new HttpPut(presignedUri)
-      val jsonEntity = new StringEntity(cloudFormationCustomResourceResponse.asJson.noSpaces)
+      val jsonEntity = new StringEntity(cloudFormationCustomResourceResponse.asJson.pretty(compactPrinter))
       jsonEntity.setContentType("")
 
       req.setEntity(jsonEntity)
@@ -34,4 +36,8 @@ class CloudFormationCustomResourceResponseWriter[F[_]: Async] {
         httpClient.close()
       }
     }
+}
+
+object CloudFormationCustomResourceResponseWriter {
+  private[CloudFormationCustomResourceResponseWriter] val compactPrinter = Printer.noSpaces.copy(dropNullValues = true)
 }
