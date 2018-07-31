@@ -10,7 +10,7 @@ import io.circe.parser._
 import com.dwolla.testutils.exceptions.NoStackTraceException
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpPut, HttpUriRequest}
 import org.apache.http.impl.client.CloseableHttpClient
-import org.slf4j.Logger
+import org.apache.logging.log4j._
 import org.specs2.concurrent.ExecutionEnv
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification

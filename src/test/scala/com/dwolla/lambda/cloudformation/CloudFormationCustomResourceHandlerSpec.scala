@@ -11,11 +11,11 @@ import io.circe._
 import io.circe.syntax._
 import io.circe.generic.auto._
 import org.mockito._
-import org.slf4j.Logger
 import org.specs2.concurrent.ExecutionEnv
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 import org.specs2.specification.Scope
+import org.apache.logging.log4j._
 
 import scala.concurrent._
 
@@ -117,7 +117,7 @@ class CloudFormationCustomResourceHandlerSpec(implicit ee: ExecutionEnv) extends
       val handler = new AbstractCustomResourceHandler() {
         override protected lazy val logger: Logger = mockLogger
 
-        override def createParsedRequestHandler(): ParsedCloudFormationCustomResourceRequestHandler = new ParsedCloudFormationCustomResourceRequestHandler {
+        override def createParsedRequestHandler() = new ParsedCloudFormationCustomResourceRequestHandler {
           override def shutdown(): Unit = promisedShutdownOfActualHandler.success(())
 
           override def handleRequest(input: CloudFormationCustomResourceRequest): Future[HandlerResponse] = mockHandlerRequest(input)

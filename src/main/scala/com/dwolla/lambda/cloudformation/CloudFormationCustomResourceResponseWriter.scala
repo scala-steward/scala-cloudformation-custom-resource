@@ -8,13 +8,13 @@ import io.circe.syntax._
 import org.apache.http.client.methods.HttpPut
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client._
-import org.slf4j._
+import org.apache.logging.log4j._
 
 import scala.io.Source
 import scala.language.higherKinds
 
 class CloudFormationCustomResourceResponseWriter[F[_]: Async] {
-  protected lazy val logger: Logger = LoggerFactory.getLogger("LambdaLogger")
+  protected lazy val logger: Logger = LogManager.getLogger("LambdaLogger")
 
   protected def httpClient: CloseableHttpClient = HttpClients.createDefault()
 
