@@ -68,6 +68,22 @@ class CloudFormationCustomResourceResponseWriterSpec(implicit ee: ExecutionEnv) 
       there was one(mockHttpClient).close()
     }
 
+    "response reason field is omitted if it is None" in new Setup {
+      val httpRequestCaptor = capture[HttpPut]
+      private val mockResponse = mock[CloseableHttpResponse]
+      mockHttpClient.execute(httpRequestCaptor) returns mockResponse
+
+      val output = responseWriter.logAndWriteToS3("https://dwolla.amazonaws.com", sampleCloudFormationCustomResourceResponse.copy(Reason = None)).unsafeToFuture()
+
+      output must be_==(()).await
+
+      private val httpEntity = httpRequestCaptor.value.getEntity
+
+      val response = Source.fromInputStream(httpEntity.getContent).mkString
+
+      response must_== """{"Status":"status","PhysicalResourceId":"physical-resource-id","StackId":"stack-id","RequestId":"request-id","LogicalResourceId":"logical-resource-id","Data":{}}"""
+    }
+
     "close the HTTP client even if the PUT throws an error" in new Setup {
       mockHttpClient.execute(any[HttpUriRequest]) throws NoStackTraceException
 
