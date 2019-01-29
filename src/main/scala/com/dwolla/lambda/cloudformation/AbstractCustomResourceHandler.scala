@@ -8,7 +8,6 @@ import cats.implicits._
 import com.amazonaws.services.lambda.runtime._
 import com.dwolla.lambda.cloudformation.AbstractCustomResourceHandler.stackTraceLines
 import io.circe._
-import io.circe.generic.auto._
 import io.circe.parser._
 import org.apache.logging.log4j._
 
@@ -60,17 +59,17 @@ abstract class AbstractCustomResourceHandler[F[_] : Effect] extends RequestStrea
   protected lazy val logger: Logger = LogManager.getLogger("LambdaLogger")
 
   private def exceptionResponse(req: CloudFormationCustomResourceRequest)(ex: Throwable) = CloudFormationCustomResourceResponse(
-    Status = "FAILED",
+    Status = RequestResponseStatus.Failed,
     Reason = Option(ex.getMessage),
     PhysicalResourceId = req.PhysicalResourceId,
     StackId = req.StackId,
     RequestId = req.RequestId,
     LogicalResourceId = req.LogicalResourceId,
-    Data = Map("StackTrace" → Json.arr(stackTraceLines(ex).map(Json.fromString): _*))
+    Data = JsonObject("StackTrace" → Json.arr(stackTraceLines(ex).map(Json.fromString): _*))
   )
 
   private def successResponse(req: CloudFormationCustomResourceRequest)(res: HandlerResponse) = CloudFormationCustomResourceResponse(
-    Status = "SUCCESS",
+    Status = RequestResponseStatus.Success,
     Reason = None,
     PhysicalResourceId = Option(res.physicalId),
     StackId = req.StackId,

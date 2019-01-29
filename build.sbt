@@ -40,10 +40,11 @@ lazy val buildSettings = Seq(
       "org.specs2" %% "specs2-core" % specs2Version % Test,
       "org.specs2" %% "specs2-mock" % specs2Version % Test,
       "com.dwolla" %% "testutils" % "1.10.0" % Test,
+      "io.circe" %% "circe-literal" % circeVersion % Test,
     ) ++ Seq(
       "io.circe" %% "circe-core",
       "io.circe" %% "circe-generic",
-      "io.circe" %% "circe-parser"
+      "io.circe" %% "circe-parser",
     ).map(_ % circeVersion)
   },
 )
