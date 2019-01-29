@@ -12,11 +12,10 @@ import io.circe.generic.auto._
 import io.circe.parser._
 import org.apache.logging.log4j._
 
-import scala.concurrent._
 import scala.io.Source
 import scala.language.higherKinds
 
-abstract class CatsAbstractCustomResourceHandler[F[_] : Effect] extends RequestStreamHandler {
+abstract class AbstractCustomResourceHandler[F[_] : Effect] extends RequestStreamHandler {
   def handleRequest(req: CloudFormationCustomResourceRequest): F[HandlerResponse]
 
   private def readInputStream(inputStream: InputStream): EitherT[F, Throwable, String] =
@@ -88,23 +87,4 @@ object AbstractCustomResourceHandler {
     throwable.printStackTrace(new PrintWriter(writer))
     writer.toString.lines.toList
   }
-}
-
-@deprecated("use CatsAbstractCustomResourceHandler instead to avoid using Future to manage effects", since = "2.0.0")
-abstract class AbstractCustomResourceHandler extends CatsAbstractCustomResourceHandler[IO] {
-  def createParsedRequestHandler(): ParsedCloudFormationCustomResourceRequestHandler
-  implicit val executionContext: ExecutionContext
-
-  // TODO replace with Bracket when cats-effect 1.0 is released
-  override def handleRequest(req: CloudFormationCustomResourceRequest): IO[HandlerResponse] =
-    for {
-      handler ← IO(createParsedRequestHandler())
-      attempt ← IO.fromFuture(IO(handler.handleRequest(req))).attempt
-      _ ← IO(handler.shutdown())
-      res ← attempt match {
-        case Right(res) ⇒ IO.pure(res)
-        case Left(ex) ⇒ IO.raiseError(ex)
-      }
-    } yield res
-
 }

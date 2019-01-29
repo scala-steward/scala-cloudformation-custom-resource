@@ -3,7 +3,6 @@ package com.dwolla.lambda.cloudformation
 import java.net.URI
 
 import cats.effect._
-import cats.implicits._
 import io.circe.syntax._
 import io.circe.generic.auto._
 import io.circe.parser._
