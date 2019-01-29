@@ -11,7 +11,7 @@ lazy val buildSettings = Seq(
   releaseVersionBump := sbtrelease.Version.Bump.Minor,
   releaseCrossBuild := true,
   libraryDependencies ++= {
-    val specs2Version = "4.3.0"
+    val specs2Version = "4.1.1" // have to pin to 4.1.x due to https://github.com/typelevel/cats/issues/2449
     val catsVersion = "1.5.0"
     val catsEffectVersion = "0.10.1"
     val circeVersion = "0.9.3"
@@ -41,6 +41,8 @@ lazy val buildSettings = Seq(
       "org.specs2" %% "specs2-mock" % specs2Version % Test,
       "com.dwolla" %% "testutils" % "1.10.0" % Test,
       "io.circe" %% "circe-literal" % circeVersion % Test,
+      "org.typelevel" %% "cats-laws" % catsVersion % Test,
+      "org.specs2" %% "specs2-scalacheck" % specs2Version % Test,
     ) ++ Seq(
       "io.circe" %% "circe-core",
       "io.circe" %% "circe-generic",
