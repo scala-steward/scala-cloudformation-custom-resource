@@ -3,7 +3,6 @@ package com.dwolla.lambda.cloudformation
 import cats.effect._
 import com.dwolla.lambda.cloudformation.CloudFormationCustomResourceResponseWriter._
 import io.circe._
-import io.circe.generic.auto._
 import io.circe.syntax._
 import org.apache.http.client.methods.HttpPut
 import org.apache.http.entity.StringEntity

@@ -3,10 +3,9 @@ package com.dwolla.lambda.cloudformation
 import java.net.URI
 
 import cats.effect._
-import cats.implicits._
 import io.circe.syntax._
-import io.circe.generic.auto._
 import io.circe.parser._
+import io.circe.literal._
 import com.dwolla.testutils.exceptions.NoStackTraceException
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpPut, HttpUriRequest}
 import org.apache.http.impl.client.CloseableHttpClient
@@ -31,12 +30,12 @@ class CloudFormationCustomResourceResponseWriterSpec(implicit ee: ExecutionEnv) 
     }
 
     val sampleCloudFormationCustomResourceResponse = CloudFormationCustomResourceResponse(
-      Status = "status",
+      Status = RequestResponseStatus.Success,
       Reason = Option("reason"),
-      PhysicalResourceId = Option("physical-resource-id"),
-      StackId = "stack-id",
-      RequestId = "request-id",
-      LogicalResourceId = "logical-resource-id"
+      PhysicalResourceId = Option("physical-resource-id").map(tagPhysicalResourceId),
+      StackId = tagStackId("stack-id"),
+      RequestId = tagRequestId("request-id"),
+      LogicalResourceId = tagLogicalResourceId("logical-resource-id"),
     )
   }
 
@@ -81,7 +80,7 @@ class CloudFormationCustomResourceResponseWriterSpec(implicit ee: ExecutionEnv) 
 
       val response = Source.fromInputStream(httpEntity.getContent).mkString
 
-      response must_== """{"Status":"status","PhysicalResourceId":"physical-resource-id","StackId":"stack-id","RequestId":"request-id","LogicalResourceId":"logical-resource-id","Data":{}}"""
+      response must_== json"""{"Status":"SUCCESS","PhysicalResourceId":"physical-resource-id","StackId":"stack-id","RequestId":"request-id","LogicalResourceId":"logical-resource-id","Data":{}}""".noSpaces
     }
 
     "close the HTTP client even if the PUT throws an error" in new Setup {
