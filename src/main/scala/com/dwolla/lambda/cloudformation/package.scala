@@ -40,16 +40,16 @@ package cloudformation {
     case class OtherRequestType(requestType: String) extends CloudFormationRequestType
 
     implicit val encoder: Encoder[CloudFormationRequestType] = {
-      case CreateRequest => "CREATE".asJson
-      case UpdateRequest => "UPDATE".asJson
-      case DeleteRequest => "DELETE".asJson
+      case CreateRequest => "Create".asJson
+      case UpdateRequest => "Update".asJson
+      case DeleteRequest => "Delete".asJson
       case OtherRequestType(req) => req.asJson
     }
 
     implicit val decoder: Decoder[CloudFormationRequestType] = Decoder[String].map {
-      case "CREATE" => CreateRequest
-      case "UPDATE" => UpdateRequest
-      case "DELETE" => DeleteRequest
+      case "Create" => CreateRequest
+      case "Update" => UpdateRequest
+      case "Delete" => DeleteRequest
       case other => OtherRequestType(other)
     }
   }

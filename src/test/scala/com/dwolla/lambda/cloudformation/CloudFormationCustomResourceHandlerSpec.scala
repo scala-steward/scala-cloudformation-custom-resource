@@ -161,7 +161,7 @@ object SampleMessages {
                  "3"
                ]
              },
-             "RequestType": "CREATE",
+             "RequestType": "Create",
              "ResourceType": "Custom::TestResource",
              "RequestId": "unique id for this create request",
              "LogicalResourceId": "MyTestResource"
