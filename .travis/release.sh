@@ -10,8 +10,8 @@ if [[ "$commit_username" == "$USERNAME" ]]; then
   exit 0
 fi
 
-if [ "$TRAVIS_BRANCH" != "master" ]; then
-  echo "Only the master branch will be released. This branch is $TRAVIS_BRANCH."
+if [ "$TRAVIS_BRANCH" != "3.x" ]; then
+  echo "Only the 3.x branch will be released. This branch is $TRAVIS_BRANCH."
   exit 0
 fi
 
@@ -22,12 +22,12 @@ git remote add release https://$GH_TOKEN@github.com/Dwolla/scala-cloudformation-
 git fetch release
 
 git clean -dxf
-git checkout master
-git branch --set-upstream-to=release/master
+git checkout 3.x
+git branch --set-upstream-to=release/3.x
 
-MASTER=$(git rev-parse HEAD)
-if [ "$TRAVIS_COMMIT" != "$MASTER" ]; then
-  echo "Checking out master set HEAD to $MASTER, but Travis was building $TRAVIS_COMMIT, so refusing to continue."
+commit=$(git rev-parse HEAD)
+if [ "$TRAVIS_COMMIT" != "$commit" ]; then
+  echo "Checking out 3.x set HEAD to $commit, but Travis was building $TRAVIS_COMMIT, so refusing to continue."
   exit 0
 fi
 
