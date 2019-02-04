@@ -12,71 +12,67 @@ import io.circe.parser._
 import org.apache.logging.log4j._
 
 import scala.io.Source
-import scala.language.higherKinds
 
 abstract class AbstractCustomResourceHandler[F[_] : Effect] extends RequestStreamHandler {
   def handleRequest(req: CloudFormationCustomResourceRequest): F[HandlerResponse]
 
   private def readInputStream(inputStream: InputStream): EitherT[F, Throwable, String] =
-    Async[F].delay(Source.fromInputStream(inputStream).mkString).attemptT
+    Sync[F].delay(Source.fromInputStream(inputStream).mkString).attemptT
 
   private def parseStringLoggingErrors(str: String): EitherT[F, Throwable, Json] =
-    EitherT.fromEither[F](parse(str)).leftSemiflatMap(ex ⇒ Async[F].delay {
+    parse(str).toEitherT[F].leftSemiflatMap(ex => Sync[F].delay {
       logger.error(s"Could not parse the following input:\n$str", ex)
       ex
     })
 
-  /*_*/
   private def parseInputStream(inputStream: InputStream): EitherT[F, Throwable, CloudFormationCustomResourceRequest] =
     for {
-      str ← readInputStream(inputStream)
-      json ← parseStringLoggingErrors(str)
-      req ← EitherT.fromEither[F](json.as[CloudFormationCustomResourceRequest]).leftWiden[Throwable]
+      str <- readInputStream(inputStream)
+      json <- parseStringLoggingErrors(str)
+      req <- json.as[CloudFormationCustomResourceRequest].toEitherT[F].leftWiden[Throwable]
     } yield req
-  /*_*/
 
-  private def handleRequestF(inputStream: InputStream): F[Unit] =
+  private def handleRequestAndWriteResponse(inputStream: InputStream): F[Unit] =
     parseInputStream(inputStream)
-      .semiflatMap { req ⇒
+      .semiflatMap { req =>
         for {
-          res ← handleRequest(req).attemptT.fold(exceptionResponse(req), successResponse(req))
-          _ ← responseWriter.logAndWriteToS3(req.ResponseURL, res)
+          res <- handleRequest(req).attemptT.fold(exceptionResponse(req), successResponse(req))
+          _ <- responseWriter.logAndWriteToS3(req.ResponseURL, res)
         } yield ()
       }
-      .valueOrF { ex ⇒
-        Async[F].delay(logger.error("failure", ex))
-          .flatMap(_ ⇒ ex.raiseError[F, Unit])
+      .valueOrF { ex =>
+        Sync[F].delay(logger.error("failure", ex))
+          .flatMap(_ => ex.raiseError[F, Unit])
       }
 
-  //noinspection ScalaUnnecessaryParentheses
   override def handleRequest(inputStream: InputStream, outputStream: OutputStream, context: Context): Unit =
-    IO.async { cb: (Either[Throwable, Unit] ⇒ Unit) ⇒
-      Effect[F].runAsync(handleRequestF(inputStream))(r ⇒ IO(cb(r))).unsafeRunSync()
-    }.unsafeRunSync()
+    Effect[F].toIO(handleRequestAndWriteResponse(inputStream)).unsafeRunSync()
 
   protected def responseWriter: CloudFormationCustomResourceResponseWriter[F] = new CloudFormationCustomResourceResponseWriter[F]()
 
   protected lazy val logger: Logger = LogManager.getLogger("LambdaLogger")
 
-  private def exceptionResponse(req: CloudFormationCustomResourceRequest)(ex: Throwable) = CloudFormationCustomResourceResponse(
-    Status = RequestResponseStatus.Failed,
-    Reason = Option(ex.getMessage),
-    PhysicalResourceId = req.PhysicalResourceId,
-    StackId = req.StackId,
-    RequestId = req.RequestId,
-    LogicalResourceId = req.LogicalResourceId,
-    Data = JsonObject("StackTrace" → Json.arr(stackTraceLines(ex).map(Json.fromString): _*))
-  )
+  private def exceptionResponse(req: CloudFormationCustomResourceRequest)(ex: Throwable) =
+    CloudFormationCustomResourceResponse(
+      Status = RequestResponseStatus.Failed,
+      Reason = Option(ex.getMessage),
+      PhysicalResourceId = req.PhysicalResourceId,
+      StackId = req.StackId,
+      RequestId = req.RequestId,
+      LogicalResourceId = req.LogicalResourceId,
+      Data = JsonObject("StackTrace" -> Json.arr(stackTraceLines(ex).map(Json.fromString): _*))
+    )
 
-  private def successResponse(req: CloudFormationCustomResourceRequest)(res: HandlerResponse) = CloudFormationCustomResourceResponse(
-    Status = RequestResponseStatus.Success,
-    Reason = None,
-    PhysicalResourceId = Option(res.physicalId),
-    StackId = req.StackId,
-    RequestId = req.RequestId,
-    LogicalResourceId = req.LogicalResourceId,
-    Data = res.data
-  )
+  private def successResponse(req: CloudFormationCustomResourceRequest)(res: HandlerResponse) =
+    CloudFormationCustomResourceResponse(
+      Status = RequestResponseStatus.Success,
+      Reason = None,
+      PhysicalResourceId = Option(res.physicalId),
+      StackId = req.StackId,
+      RequestId = req.RequestId,
+      LogicalResourceId = req.LogicalResourceId,
+      Data = res.data
+    )
 
 }
 
@@ -84,6 +80,6 @@ object AbstractCustomResourceHandler {
   def stackTraceLines(throwable: Throwable): List[String] = {
     val writer = new StringWriter()
     throwable.printStackTrace(new PrintWriter(writer))
-    writer.toString.lines.toList
+    writer.toString.linesIterator.toList
   }
 }

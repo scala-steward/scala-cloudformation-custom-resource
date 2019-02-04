@@ -60,7 +60,7 @@ class CreateOrUpdateSpec(implicit ee: ExecutionEnv) extends Specification with D
         val output: Future[CreateOrUpdate[String]] = input.sequence
 
         output must beLike[CreateOrUpdate[String]] {
-          case x ⇒ x.value must_== "value"
+          case x => x.value must_== "value"
         }.await
       }
 
@@ -70,7 +70,7 @@ class CreateOrUpdateSpec(implicit ee: ExecutionEnv) extends Specification with D
         val output: IO[CreateOrUpdate[String]] = input.sequence
 
         output.unsafeToFuture() must beLike[CreateOrUpdate[String]] {
-          case x ⇒ x.value must_== "value"
+          case x => x.value must_== "value"
         }.await
       }
 
@@ -80,7 +80,7 @@ class CreateOrUpdateSpec(implicit ee: ExecutionEnv) extends Specification with D
         val output: Option[CreateOrUpdate[String]] = input.sequence
 
         output must beSome[CreateOrUpdate[String]].like {
-          case x ⇒ x.value must_== "value"
+          case x => x.value must_== "value"
         }
       }
     }

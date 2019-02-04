@@ -11,10 +11,10 @@ lazy val buildSettings = Seq(
   releaseVersionBump := sbtrelease.Version.Bump.Minor,
   releaseCrossBuild := true,
   libraryDependencies ++= {
-    val specs2Version = "4.1.1" // have to pin to 4.1.x due to https://github.com/typelevel/cats/issues/2449
-    val catsVersion = "1.5.0"
-    val catsEffectVersion = "0.10.1"
-    val circeVersion = "0.9.3"
+    val specs2Version = "4.6.0"
+    val catsVersion = "2.0.0-RC2"
+    val catsEffectVersion = "2.0.0-RC2"
+    val circeVersion = "0.12.0-RC4"
 
     val amazonJavaSdks = List(    // exclude the SDKs we don't need, since they're pulled in transitively, to keep the size of the jar down
       ExclusionRule(organization = "com.amazonaws", name = "aws-java-sdk-cloudformation"),
@@ -31,7 +31,7 @@ lazy val buildSettings = Seq(
       "org.typelevel" %% "cats-effect" % catsEffectVersion,
       "com.amazonaws" % "aws-lambda-java-core" % "1.1.0",
       "com.amazonaws" % "aws-lambda-java-log4j2" % "1.0.0",
-      "org.log4s" %% "log4s" % "1.6.1",
+      "org.log4s" %% "log4s" % "1.8.2",
       "org.apache.logging.log4j" % "log4j-api" % "2.11.1",
       "org.apache.logging.log4j" % "log4j-core" % "2.11.1",
       "org.apache.logging.log4j" % "log4j-slf4j-impl" % "2.11.1",
@@ -39,9 +39,9 @@ lazy val buildSettings = Seq(
       "com.amazonaws" % "aws-lambda-java-events" % "1.1.0" % Test excludeAll(amazonJavaSdks: _*),
       "org.specs2" %% "specs2-core" % specs2Version % Test,
       "org.specs2" %% "specs2-mock" % specs2Version % Test,
-      "com.dwolla" %% "testutils" % "1.10.0" % Test,
       "io.circe" %% "circe-literal" % circeVersion % Test,
       "org.typelevel" %% "cats-laws" % catsVersion % Test,
+      "org.typelevel" %% "discipline-specs2" % "1.0.0-RC1" % Test,
       "org.specs2" %% "specs2-scalacheck" % specs2Version % Test,
     ) ++ Seq(
       "io.circe" %% "circe-core",
@@ -56,7 +56,7 @@ lazy val bintraySettings = Seq(
   publishMavenStyle := true,
   bintrayRepository := "maven",
   bintrayOrganization := Option("dwolla"),
-  pomIncludeRepository := { _ ⇒ false }
+  pomIncludeRepository := { _ => false }
 )
 
 lazy val cloudformationCustomResource = (project in file("."))

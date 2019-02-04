@@ -6,7 +6,6 @@ import cats.effect._
 import io.circe.syntax._
 import io.circe.parser._
 import io.circe.literal._
-import com.dwolla.testutils.exceptions.NoStackTraceException
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpPut, HttpUriRequest}
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.logging.log4j._
@@ -58,9 +57,9 @@ class CloudFormationCustomResourceResponseWriterSpec(implicit ee: ExecutionEnv) 
       httpEntity.getContentLength must be_>(0L)
       httpEntity.isChunked must beFalse
 
-      val response = parse(Source.fromInputStream(httpEntity.getContent).mkString).flatMap(_.as[CloudFormationCustomResourceResponse]).right.get
+      val response = parse(Source.fromInputStream(httpEntity.getContent).mkString).flatMap(_.as[CloudFormationCustomResourceResponse])
 
-      response must_== sampleCloudFormationCustomResourceResponse
+      response must beRight(sampleCloudFormationCustomResourceResponse)
 
       there was one(mockLogger).info(sampleCloudFormationCustomResourceResponse.asJson.noSpaces)
       there was one(mockResponse).close()
