@@ -22,6 +22,6 @@ deploy:
   - provider: script
     script: .travis/release.sh
     on:
-      branch: master
+      branch: 4.x
       scala: 2.12.8
       condition: $(git log -n1 --format=format:"%an") != "Dwolla Bot"
