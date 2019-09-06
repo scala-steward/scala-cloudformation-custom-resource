@@ -55,7 +55,7 @@ class CloudFormationCustomResourceHandlerSpec(implicit ee: ExecutionEnv) extends
 
       mockResponseWriter.logAndWriteToS3("http://pre-signed-S3-url-for-response", expectedResponse) returns IO.unit
 
-      this.handleRequest(new StringInputStream(CloudFormationCustomResourceInputJson), outputStream, context)
+      this.handleRequestAndWriteResponse(new StringInputStream(CloudFormationCustomResourceInputJson)).unsafeRunSync()
 
       promisedRequest.future must be_==(CloudFormationCustomResourceRequest(
         RequestType = CloudFormationRequestType.CreateRequest,
@@ -72,7 +72,9 @@ class CloudFormationCustomResourceHandlerSpec(implicit ee: ExecutionEnv) extends
     }
 
     "log json if a parse error occurs" in new IOSetup {
-      this.handleRequest(new StringInputStream(invalidJson), outputStream, context) must throwA[ParsingFailure]
+      this.handleRequestAndWriteResponse(new StringInputStream(invalidJson)).attempt.unsafeRunSync() must beLeft[Throwable].like {
+        case ex: ParsingFailure => ex must not beNull
+      }
 
       there was one(mockLogger).error(ArgumentMatchers.eq(
         s"""Could not parse the following input:
@@ -97,7 +99,7 @@ class CloudFormationCustomResourceHandlerSpec(implicit ee: ExecutionEnv) extends
 
       mockResponseWriter.logAndWriteToS3("http://pre-signed-S3-url-for-response", expectedResponse) returns IO.unit
 
-      this.handleRequest(new StringInputStream(CloudFormationCustomResourceInputJson), outputStream, context)
+      this.handleRequestAndWriteResponse(new StringInputStream(CloudFormationCustomResourceInputJson)).unsafeRunSync()
 
       there was one(mockResponseWriter).logAndWriteToS3("http://pre-signed-S3-url-for-response", expectedResponse)
     }

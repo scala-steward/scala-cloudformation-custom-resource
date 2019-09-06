@@ -11,9 +11,27 @@ import io.circe._
 import io.circe.parser._
 import org.apache.logging.log4j._
 
+import scala.concurrent.ExecutionContext
 import scala.io.Source
 
-abstract class AbstractCustomResourceHandler[F[_] : Effect] extends RequestStreamHandler {
+abstract class IOCustomResourceHandler(protected val executionContext: ExecutionContext) extends RequestStreamHandler { ioLambda =>
+  def this() = this(ExecutionContext.global)
+
+  protected implicit def contextShift: ContextShift[IO] = cats.effect.IO.contextShift(executionContext)
+  protected implicit def timer: Timer[IO] = cats.effect.IO.timer(executionContext)
+
+  def handleRequest(req: CloudFormationCustomResourceRequest): IO[HandlerResponse]
+
+  private val handlerProxy = new AbstractCustomResourceHandler[IO] {
+    override def handleRequest(req: CloudFormationCustomResourceRequest): IO[HandlerResponse] =
+      ioLambda.handleRequest(req)
+  }
+
+  override def handleRequest(inputStream: InputStream, outputStream: OutputStream, context: Context): Unit =
+    handlerProxy.handleRequestAndWriteResponse(inputStream).unsafeRunSync()
+}
+
+abstract class AbstractCustomResourceHandler[F[_] : Sync] {
   def handleRequest(req: CloudFormationCustomResourceRequest): F[HandlerResponse]
 
   private def readInputStream(inputStream: InputStream): EitherT[F, Throwable, String] =
@@ -32,7 +50,7 @@ abstract class AbstractCustomResourceHandler[F[_] : Effect] extends RequestStrea
       req <- json.as[CloudFormationCustomResourceRequest].toEitherT[F].leftWiden[Throwable]
     } yield req
 
-  private def handleRequestAndWriteResponse(inputStream: InputStream): F[Unit] =
+  def handleRequestAndWriteResponse(inputStream: InputStream): F[Unit] =
     parseInputStream(inputStream)
       .semiflatMap { req =>
         for {
@@ -44,9 +62,6 @@ abstract class AbstractCustomResourceHandler[F[_] : Effect] extends RequestStrea
         Sync[F].delay(logger.error("failure", ex))
           .flatMap(_ => ex.raiseError[F, Unit])
       }
-
-  override def handleRequest(inputStream: InputStream, outputStream: OutputStream, context: Context): Unit =
-    Effect[F].toIO(handleRequestAndWriteResponse(inputStream)).unsafeRunSync()
 
   protected def responseWriter: CloudFormationCustomResourceResponseWriter[F] = new CloudFormationCustomResourceResponseWriter[F]()
 
