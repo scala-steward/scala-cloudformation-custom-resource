@@ -10,15 +10,14 @@ import org.apache.http.impl.client._
 import org.apache.logging.log4j._
 
 import scala.io.Source
-import scala.language.higherKinds
 
-class CloudFormationCustomResourceResponseWriter[F[_]: Async] {
+class CloudFormationCustomResourceResponseWriter[F[_]: Sync] {
   protected lazy val logger: Logger = LogManager.getLogger("LambdaLogger")
 
   protected def httpClient: CloseableHttpClient = HttpClients.createDefault()
 
   def logAndWriteToS3(presignedUri: String, cloudFormationCustomResourceResponse: CloudFormationCustomResourceResponse): F[Unit] =
-    Async[F].delay {
+    Sync[F].delay {
       val req = new HttpPut(presignedUri)
       val jsonEntity = new StringEntity(cloudFormationCustomResourceResponse.asJson.pretty(compactPrinter))
       jsonEntity.setContentType("")

@@ -6,7 +6,6 @@ import cats.effect._
 import com.amazonaws.services.lambda.runtime.Context
 import com.amazonaws.util.StringInputStream
 import com.dwolla.lambda.cloudformation.SampleMessages._
-import com.dwolla.testutils.exceptions.NoStackTraceException
 import io.circe._
 import io.circe.syntax._
 import io.circe.literal._
@@ -56,7 +55,7 @@ class CloudFormationCustomResourceHandlerSpec(implicit ee: ExecutionEnv) extends
 
       mockResponseWriter.logAndWriteToS3("http://pre-signed-S3-url-for-response", expectedResponse) returns IO.unit
 
-      this.handleRequest(new StringInputStream(CloudFormationCustomResourceInputJson), outputStream, context)
+      this.handleRequestAndWriteResponse(new StringInputStream(CloudFormationCustomResourceInputJson)).unsafeRunSync()
 
       promisedRequest.future must be_==(CloudFormationCustomResourceRequest(
         RequestType = CloudFormationRequestType.CreateRequest,
@@ -66,14 +65,16 @@ class CloudFormationCustomResourceHandlerSpec(implicit ee: ExecutionEnv) extends
         ResourceType = tagResourceType("Custom::TestResource"),
         LogicalResourceId = tagLogicalResourceId("MyTestResource"),
         PhysicalResourceId = None,
-        ResourceProperties = Option(JsonObject("StackName" → Json.fromString("stack-name"), "List" → Json.arr(List("1", "2", "3").map(Json.fromString): _*))),
+        ResourceProperties = Option(JsonObject("StackName" -> Json.fromString("stack-name"), "List" -> Json.arr(List("1", "2", "3").map(Json.fromString): _*))),
         OldResourceProperties = None
       )).await
       there was one(mockResponseWriter).logAndWriteToS3("http://pre-signed-S3-url-for-response", expectedResponse)
     }
 
     "log json if a parse error occurs" in new IOSetup {
-      this.handleRequest(new StringInputStream(invalidJson), outputStream, context) must throwA[ParsingFailure]
+      this.handleRequestAndWriteResponse(new StringInputStream(invalidJson)).attempt.unsafeRunSync() must beLeft[Throwable].like {
+        case ex: ParsingFailure => ex must not beNull
+      }
 
       there was one(mockLogger).error(ArgumentMatchers.eq(
         s"""Could not parse the following input:
@@ -92,13 +93,13 @@ class CloudFormationCustomResourceHandlerSpec(implicit ee: ExecutionEnv) extends
         LogicalResourceId = tagLogicalResourceId("MyTestResource"),
         RequestId = tagRequestId("unique id for this create request"),
         PhysicalResourceId = None,
-        Reason = Option("exception intentionally thrown by test"),
-        Data = JsonObject("StackTrace" → List("com.dwolla.testutils.exceptions.NoStackTraceException$: exception intentionally thrown by test"))
+        Reason = Option("exception deliberately thrown by test"),
+        Data = JsonObject("StackTrace" -> List("com.dwolla.lambda.cloudformation.NoStackTraceException$: exception deliberately thrown by test"))
       )
 
       mockResponseWriter.logAndWriteToS3("http://pre-signed-S3-url-for-response", expectedResponse) returns IO.unit
 
-      this.handleRequest(new StringInputStream(CloudFormationCustomResourceInputJson), outputStream, context)
+      this.handleRequestAndWriteResponse(new StringInputStream(CloudFormationCustomResourceInputJson)).unsafeRunSync()
 
       there was one(mockResponseWriter).logAndWriteToS3("http://pre-signed-S3-url-for-response", expectedResponse)
     }
@@ -113,7 +114,7 @@ class CloudFormationCustomResourceHandlerSpec(implicit ee: ExecutionEnv) extends
       val stackTrace = {
         val out = new StringWriter()
         exception.printStackTrace(new PrintWriter(out))
-        out.toString.lines.toList
+        out.toString.linesIterator.toList
       }
 
       val expectedResponse = CloudFormationCustomResourceResponse(
@@ -124,7 +125,7 @@ class CloudFormationCustomResourceHandlerSpec(implicit ee: ExecutionEnv) extends
         PhysicalResourceId = None,
         Reason = Option("exception intentionally thrown by test"),
         Data = JsonObject(
-          "StackTrace" → stackTrace
+          "StackTrace" -> stackTrace
         )
       )
 
@@ -173,3 +174,5 @@ object SampleMessages {
 class WritableStackTraceRuntimeException(message: String = "exception intentionally thrown by test") extends RuntimeException(message, null, true, true) {
   override def fillInStackTrace(): Throwable = this
 }
+
+case object NoStackTraceException extends RuntimeException("exception deliberately thrown by test", null, true, false)

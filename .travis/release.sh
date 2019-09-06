@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 set -o errexit -o nounset
 
 USERNAME="Dwolla Bot"
@@ -18,7 +17,7 @@ fi
 git config user.name "$USERNAME"
 git config user.email "dev+dwolla-bot@dwolla.com"
 
-git remote add release https://$GH_TOKEN@github.com/Dwolla/scala-cloudformation-custom-resource.git
+git remote add release "https://$GH_TOKEN@github.com/Dwolla/scala-cloudformation-custom-resource.git"
 git fetch release
 
 git clean -dxf
@@ -31,4 +30,5 @@ if [ "$TRAVIS_COMMIT" != "$commit" ]; then
   exit 0
 fi
 
-sbt clean "release with-defaults"
+# Disable automatic releases while we release milestones
+# sbt clean "release with-defaults"
