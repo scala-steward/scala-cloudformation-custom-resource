@@ -19,7 +19,7 @@ class CloudFormationCustomResourceResponseWriter[F[_]: Sync] {
   def logAndWriteToS3(presignedUri: String, cloudFormationCustomResourceResponse: CloudFormationCustomResourceResponse): F[Unit] =
     Sync[F].delay {
       val req = new HttpPut(presignedUri)
-      val jsonEntity = new StringEntity(cloudFormationCustomResourceResponse.asJson.pretty(compactPrinter))
+      val jsonEntity = new StringEntity(cloudFormationCustomResourceResponse.asJson.printWith(compactPrinter))
       jsonEntity.setContentType("")
 
       req.setEntity(jsonEntity)

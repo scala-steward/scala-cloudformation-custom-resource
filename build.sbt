@@ -11,10 +11,10 @@ lazy val buildSettings = Seq(
   releaseVersionBump := sbtrelease.Version.Bump.Minor,
   releaseCrossBuild := true,
   libraryDependencies ++= {
-    val specs2Version = "4.6.0"
-    val catsVersion = "2.0.0-RC2"
-    val catsEffectVersion = "2.0.0-RC2"
-    val circeVersion = "0.12.0-RC4"
+    val specs2Version = "4.7.0"
+    val catsVersion = "2.0.0"
+    val catsEffectVersion = "2.0.0"
+    val circeVersion = "0.12.0"
 
     val amazonJavaSdks = List(    // exclude the SDKs we don't need, since they're pulled in transitively, to keep the size of the jar down
       ExclusionRule(organization = "com.amazonaws", name = "aws-java-sdk-cloudformation"),
@@ -41,7 +41,7 @@ lazy val buildSettings = Seq(
       "org.specs2" %% "specs2-mock" % specs2Version % Test,
       "io.circe" %% "circe-literal" % circeVersion % Test,
       "org.typelevel" %% "cats-laws" % catsVersion % Test,
-      "org.typelevel" %% "discipline-specs2" % "1.0.0-RC1" % Test,
+      "org.typelevel" %% "discipline-specs2" % "1.0.0" % Test,
       "org.specs2" %% "specs2-scalacheck" % specs2Version % Test,
     ) ++ Seq(
       "io.circe" %% "circe-core",
