@@ -37,7 +37,7 @@ class CloudFormationCustomResourceHandlerSpec(implicit ee: ExecutionEnv) extends
     }
 
     "deserialize input, pass req to handler, and convert output to response format" in new IOSetup {
-      val promisedRequest = Promise[CloudFormationCustomResourceRequest]
+      val promisedRequest = Promise[CloudFormationCustomResourceRequest]()
 
       override def handleRequest(input: CloudFormationCustomResourceRequest) = IO {
         promisedRequest.success(input)
