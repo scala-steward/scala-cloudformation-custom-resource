@@ -11,7 +11,7 @@ inThisBuild(List(
       url("https://dwolla.com")
     ),
   ),
-  crossScalaVersions := Seq("2.13.5", "2.12.13"),
+  crossScalaVersions := Seq("2.13.6", "2.12.15"),
   scalaVersion := crossScalaVersions.value.head,
   startYear := Option(2016),
   addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.13.2" cross CrossVersion.full),
@@ -37,10 +37,10 @@ inThisBuild(List(
 lazy val `scala-cloudformation-custom-resource` = (project in file("."))
   .settings(
     libraryDependencies ++= {
-      val specs2Version = "4.7.0"
-      val catsVersion = "2.5.0"
-      val catsEffectVersion = "2.4.1"
-      val circeVersion = "0.13.0"
+      val specs2Version = "4.7.1"
+      val catsVersion = "2.6.1"
+      val catsEffectVersion = "2.5.4"
+      val circeVersion = "0.14.1"
 
       val amazonJavaSdks = List(    // exclude the SDKs we don't need, since they're pulled in transitively, to keep the size of the jar down
         ExclusionRule(organization = "com.amazonaws", name = "aws-java-sdk-cloudformation"),
@@ -55,19 +55,19 @@ lazy val `scala-cloudformation-custom-resource` = (project in file("."))
       Seq(
         "org.typelevel" %% "cats-core" % catsVersion,
         "org.typelevel" %% "cats-effect" % catsEffectVersion,
-        "com.amazonaws" % "aws-lambda-java-core" % "1.1.0",
-        "com.amazonaws" % "aws-lambda-java-log4j2" % "1.0.0",
-        "org.log4s" %% "log4s" % "1.8.2",
-        "org.apache.logging.log4j" % "log4j-api" % "2.11.1",
-        "org.apache.logging.log4j" % "log4j-core" % "2.11.1",
-        "org.apache.logging.log4j" % "log4j-slf4j-impl" % "2.11.1",
-        "org.apache.httpcomponents" % "httpclient" % "4.5.2",
-        "com.amazonaws" % "aws-lambda-java-events" % "1.1.0" % Test excludeAll(amazonJavaSdks: _*),
+        "com.amazonaws" % "aws-lambda-java-core" % "1.2.1",
+        "com.amazonaws" % "aws-lambda-java-log4j2" % "1.2.0",
+        "org.log4s" %% "log4s" % "1.10.0",
+        "org.apache.logging.log4j" % "log4j-api" % "2.11.2",
+        "org.apache.logging.log4j" % "log4j-core" % "2.11.2",
+        "org.apache.logging.log4j" % "log4j-slf4j-impl" % "2.11.2",
+        "org.apache.httpcomponents" % "httpclient" % "4.5.13",
+        "com.amazonaws" % "aws-lambda-java-events" % "1.3.0" % Test excludeAll(amazonJavaSdks: _*),
         "org.specs2" %% "specs2-core" % specs2Version % Test,
         "org.specs2" %% "specs2-mock" % specs2Version % Test,
         "io.circe" %% "circe-literal" % circeVersion % Test,
         "org.typelevel" %% "cats-laws" % catsVersion % Test,
-        "org.typelevel" %% "discipline-specs2" % "1.0.0" % Test,
+        "org.typelevel" %% "discipline-specs2" % "1.2.3" % Test,
         "org.specs2" %% "specs2-scalacheck" % specs2Version % Test,
       ) ++ Seq(
         "io.circe" %% "circe-core",
