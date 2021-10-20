@@ -4,7 +4,6 @@ import java.io._
 
 import cats.effect._
 import com.amazonaws.services.lambda.runtime.Context
-import com.amazonaws.util.StringInputStream
 import com.dwolla.lambda.cloudformation.SampleMessages._
 import io.circe._
 import io.circe.syntax._
@@ -176,3 +175,9 @@ class WritableStackTraceRuntimeException(message: String = "exception intentiona
 }
 
 case object NoStackTraceException extends RuntimeException("exception deliberately thrown by test", null, true, false)
+
+class StringInputStream(str: String) extends InputStream {
+  private val bais = new ByteArrayInputStream(str.getBytes)
+
+  override def read(): Int = bais.read()
+}
