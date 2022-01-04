@@ -56,7 +56,7 @@ lazy val `scala-cloudformation-custom-resource` = (project in file("."))
         "org.typelevel" %% "cats-core" % catsVersion,
         "org.typelevel" %% "cats-effect" % catsEffectVersion,
         "com.amazonaws" % "aws-lambda-java-core" % "1.2.1",
-        "com.amazonaws" % "aws-lambda-java-log4j2" % "1.5.0",
+        "com.amazonaws" % "aws-lambda-java-log4j2" % "1.5.1",
         "org.log4s" %% "log4s" % "1.10.0",
         "org.apache.logging.log4j" % "log4j-api" % "2.17.1",
         "org.apache.logging.log4j" % "log4j-core" % "2.17.1",
