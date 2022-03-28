@@ -37,7 +37,7 @@ inThisBuild(List(
 lazy val `scala-cloudformation-custom-resource` = (project in file("."))
   .settings(
     libraryDependencies ++= {
-      val specs2Version = "4.14.1"
+      val specs2Version = "4.15.0"
       val catsVersion = "2.7.0"
       val catsEffectVersion = "2.5.4"
       val circeVersion = "0.14.1"
@@ -58,9 +58,9 @@ lazy val `scala-cloudformation-custom-resource` = (project in file("."))
         "com.amazonaws" % "aws-lambda-java-core" % "1.2.1",
         "com.amazonaws" % "aws-lambda-java-log4j2" % "1.5.1",
         "org.log4s" %% "log4s" % "1.10.0",
-        "org.apache.logging.log4j" % "log4j-api" % "2.17.1",
-        "org.apache.logging.log4j" % "log4j-core" % "2.17.1",
-        "org.apache.logging.log4j" % "log4j-slf4j-impl" % "2.17.1",
+        "org.apache.logging.log4j" % "log4j-api" % "2.17.2",
+        "org.apache.logging.log4j" % "log4j-core" % "2.17.2",
+        "org.apache.logging.log4j" % "log4j-slf4j-impl" % "2.17.2",
         "org.apache.httpcomponents" % "httpclient" % "4.5.13",
         "com.amazonaws" % "aws-lambda-java-events" % "3.11.0" % Test excludeAll(amazonJavaSdks: _*),
         "org.specs2" %% "specs2-core" % specs2Version % Test,
