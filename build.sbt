@@ -11,13 +11,13 @@ inThisBuild(List(
       url("https://dwolla.com")
     ),
   ),
-  crossScalaVersions := Seq("2.13.6", "2.12.15"),
+  crossScalaVersions := Seq("2.13.8", "2.12.15"),
   scalaVersion := crossScalaVersions.value.head,
   startYear := Option(2016),
   addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.13.2" cross CrossVersion.full),
   addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"),
 
-  githubWorkflowJavaVersions := Seq("adopt@1.8", "adopt@1.11"),
+  githubWorkflowJavaVersions := Seq(JavaSpec.temurin("8"), JavaSpec.temurin("11")),
   githubWorkflowTargetTags ++= Seq("v*"),
   githubWorkflowPublishTargetBranches :=
     Seq(RefPredicate.StartsWith(Ref.Tag("v"))),
