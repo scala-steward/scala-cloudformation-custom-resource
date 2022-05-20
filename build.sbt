@@ -40,7 +40,7 @@ lazy val `scala-cloudformation-custom-resource` = (project in file("."))
       val specs2Version = "4.15.0"
       val catsVersion = "2.7.0"
       val catsEffectVersion = "2.5.5"
-      val circeVersion = "0.14.1"
+      val circeVersion = "0.14.2"
 
       val amazonJavaSdks = List(    // exclude the SDKs we don't need, since they're pulled in transitively, to keep the size of the jar down
         ExclusionRule(organization = "com.amazonaws", name = "aws-java-sdk-cloudformation"),
