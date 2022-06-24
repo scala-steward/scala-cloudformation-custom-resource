@@ -5,6 +5,10 @@
 
 Abstract CloudFormation custom resource Lambda that can be easily extended with custom functionality.
 
+### Deprecated
+
+This project is now deprecated, and much of its functionality has been donated to the [Typelevel Feral](https://github.com/typelevel/feral/) project, which makes it available for Cats Effect 3. Please upgrade to that project instead.
+
 ### cats-effect version matrix:
 
 |scala-cloudformation-custom-resource | cats-effect |
